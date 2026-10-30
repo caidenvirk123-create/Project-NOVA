@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
+combined_nova_code.txt
+flight_data.csv
+flight_data_events.json
