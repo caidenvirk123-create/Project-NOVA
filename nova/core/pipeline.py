@@ -381,8 +381,15 @@ class SimulationPipeline:
             self._propellant = max(0.0, self._propellant - dm)
             new_mass         = max(s.mass - dm, 0.001)
 
-        deriv_fn  = build_deriv_fn(F_net_eci, tau_net_body,
-                                   mass_model.inertia_body, s.mass)
+        # Gravity is position-dependent, so re-evaluate it at every RK4 sub-stage.
+        # Thrust/aero stay frozen for the tick, as before.
+        F_nongrav = F_net_eci - F_grav
+        deriv_fn  = build_deriv_fn(
+            F_nongrav, tau_net_body, mass_model.inertia_body, s.mass,
+            accel_fn=lambda r: gravity_acceleration(
+                r, cfg.gravity_bodies, include_j2=cfg.enable_j2),
+        )
+                                   
         new_state = integrate_state(deriv_fn, s, dt, new_mass=new_mass)
 
         # ── Stage 5: Collision Detection ─────────────────────────────

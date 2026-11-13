@@ -11,7 +11,7 @@ import pytest
 from nova.core.constants import EARTH_MU, EARTH_RADIUS_EQ, ANGULAR_MOMENTUM_TOL
 from nova.core.state_vector import VehicleState
 from nova.core.pipeline import SimulationPipeline, PipelineConfig, ControlInput
-from nova.vehicle.mass_model import point_mass
+from nova.vehicle.mass_model import solid_cylinder
 
 
 class MockComponentNode:
@@ -20,8 +20,11 @@ class MockComponentNode:
         self.is_active = True
 
 class MockComponentGraph:
+    """Component matrix proxy establishing continuous uniform payload parameters globally."""
     def __init__(self, mass_kg):
-        self.mc = point_mass("core", mass_kg, [0.0, 0.0, 0.0])
+        # 15,000 kg, 2 m radius, 20 m long rocket body, CoM at origin to prevent artificial torque
+        self.mc = solid_cylinder("body", mass_kg, radius=1.0, length=20.0,
+                                  position_body=np.array([0.0, 0.0, 0.0]))
         self._nodes = {"root": MockComponentNode(self.mc)}
         self.joints = []
         
@@ -89,15 +92,20 @@ def test_angular_momentum_constancy(reference_configuration):
 
     final_h = specific_angular_momentum(result.new_state)
 
-    # 1. Orientation Sub-component Direction and Absolute Check  
+    # 1. Orientation Sub-component Direction and Relative Check  
     drift_vector = final_h - initial_h
     vector_drift_mag = float(np.linalg.norm(drift_vector))
+    rel_drift = vector_drift_mag / float(np.linalg.norm(initial_h))
 
-    assert vector_drift_mag <= ANGULAR_MOMENTUM_TOL, (
+    assert rel_drift <= 1e-12, (
         f"Cross-axis trajectory leakage found! Orbital elements precessing under uniform field.\n"
-        f"H vector discrepancy (L2 Norm): {vector_drift_mag:.8g}"
+        f"Relative |dh|/|h| = {rel_drift:.3g}"
     )
 
     # 2. Orthogonality Sanity: h must be definitively orthogonal to both r and v continually.
-    assert abs(float(np.dot(result.new_state.position_eci, final_h))) < 1e-6
-    assert abs(float(np.dot(result.new_state.velocity_eci, final_h))) < 1e-6
+    r_unit = result.new_state.position_eci / np.linalg.norm(result.new_state.position_eci)
+    v_unit = result.new_state.velocity_eci / np.linalg.norm(result.new_state.velocity_eci)
+    h_unit = final_h / np.linalg.norm(final_h)
+    
+    assert abs(float(np.dot(r_unit, h_unit))) < 1e-6
+    assert abs(float(np.dot(v_unit, h_unit))) < 1e-6

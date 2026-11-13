@@ -12,7 +12,7 @@ from nova.core.constants import EARTH_MU, EARTH_RADIUS_EQ
 from nova.core.state_vector import VehicleState
 from nova.core.pipeline import SimulationPipeline, PipelineConfig, ControlInput
 from nova.physics.orbital import elements_from_state, KeplerianElements
-from nova.vehicle.mass_model import point_mass
+from nova.vehicle.mass_model import solid_cylinder
 
 
 class MockComponentNode:
@@ -22,9 +22,11 @@ class MockComponentNode:
         self.is_active = True
 
 class MockComponentGraph:
-    """Isolates the physics accumulation phase dynamically simulating a core frame."""
+    """Component matrix proxy establishing continuous uniform payload parameters globally."""
     def __init__(self, mass_kg):
-        self.mc = point_mass("core", mass_kg, [0.0, 0.0, 0.0])
+        # 15,000 kg, 2 m radius, 20 m long rocket body, CoM at origin to prevent artificial torque
+        self.mc = solid_cylinder("body", mass_kg, radius=1.0, length=20.0,
+                                  position_body=np.array([0.0, 0.0, 0.0]))
         self._nodes = {"root": MockComponentNode(self.mc)}
         self.joints = []
         

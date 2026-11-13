@@ -10,7 +10,7 @@ import pytest
 from nova.core.constants import EARTH_MU, EARTH_RADIUS_EQ
 from nova.core.state_vector import VehicleState
 from nova.core.pipeline import SimulationPipeline, PipelineConfig, ControlInput
-from nova.vehicle.mass_model import point_mass
+from nova.vehicle.mass_model import solid_cylinder
 
 
 class MockComponentNode:
@@ -20,7 +20,9 @@ class MockComponentNode:
 
 class MockComponentGraph:
     def __init__(self, mass_kg):
-        self.mc = point_mass("core", mass_kg, [0.0, 0.0, 0.0])
+        # Use solid_cylinder with CoM at origin to prevent artificial torque
+        self.mc = solid_cylinder("body", mass_kg, radius=1.0, length=20.0,
+                                  position_body=np.array([0.0, 0.0, 0.0]))
         self._nodes = {"root": MockComponentNode(self.mc)}
         self.joints = []
         

@@ -285,6 +285,7 @@ def build_deriv_fn(
     torque_body: np.ndarray,
     inertia_body: np.ndarray,
     mass: float,
+    accel_fn: Optional[Callable[[np.ndarray], np.ndarray]] = None,
 ) -> DerivFn:
     """
     Construct the full 13D ODE derivative function for one simulation tick.
@@ -302,6 +303,7 @@ def build_deriv_fn(
         Inertia tensor in Body Frame [kg·m²].
     mass : float
         Vehicle mass this tick [kg].
+    accel_fn : optional position-dependent acceleration [m/s²] (e.g. gravity), evaluated at every RK4 sub-stage.
 
     Returns
     -------
@@ -324,8 +326,10 @@ def build_deriv_fn(
         # ṙ = v
         r_dot = v
 
-        # v̇ = F / m
+        # v̇ = F / m  (+ position-dependent acceleration re-evaluated per RK4 sub-stage)
         v_dot = F / m
+        if accel_fn is not None:
+            v_dot = v_dot + accel_fn(y[0:3])
 
         # q̇ = ½ Ξ(q) ω
         Xi    = xi_matrix(q)           # (4, 3)
